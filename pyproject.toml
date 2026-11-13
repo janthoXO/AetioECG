@@ -1,10 +1,10 @@
 [project]
 name = "aetioecg"
 version = "0.1.0"
-description = "Synthetic 12-lead ECG provider for medical education: retrieves real PTB-XL ECGs by SCP-ECG statement and renders them as SVG, via MCP server and CLI, with a protobuf contract."
+description = "Synthetic 12-lead ECG provider for medical education: retrieves real PTB-XL ECGs by SCP-ECG statement and renders them as SVG, via MCP server, gRPC server and CLI, with a protobuf contract."
 keywords = [
     "ecg", "electrocardiogram", "12-lead-ecg", "ptb-xl", "scp-ecg", "physionet", "medical-education",
-    "mcp", "mcp-server", "protobuf", "svg", "synthetic-data", "healthcare", "virtual-patient",
+    "mcp", "mcp-server", "grpc", "protobuf", "svg", "synthetic-data", "healthcare", "virtual-patient",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -24,6 +24,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "anyio>=4.16.0",
+    "grpcio>=1.85.1",
     "mcp>=2.3.0",
     "protobuf>=7.36.2",
     "pydantic>=2.14.3",

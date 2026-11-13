@@ -1,13 +1,12 @@
 // AetioECG contract: what a client may ask for and what it gets back.
-// The CLI and the MCP server speak these messages in their proto3 JSON form.
+// The gRPC server speaks them in binary; the CLI and the MCP server in their proto3 JSON form.
 // Regenerate the Python code after any change (see README-DEV.md):
-//   uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src proto/aetioecg/v1/ecg.proto
+//   uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src --grpc_python_out=src proto/aetioecg/v1/ecg.proto
 syntax = "proto3";
 
 package aetioecg.v1;
 
-// The two endpoints every adapter (CLI, MCP) exposes. No gRPC server is shipped;
-// the service block documents the contract.
+// Served as-is by `aetioecg grpc`; the CLI and the MCP server expose the same two endpoints.
 service EcgService {
   // Every statement code the active ECG source can produce. Ask this first.
   rpc ListOptions(ListOptionsRequest) returns (EcgOptions);

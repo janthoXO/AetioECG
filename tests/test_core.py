@@ -164,3 +164,26 @@ def test_cli_options_and_get(capsys, tmp_path):
     assert out.read_bytes().startswith(b"<svg")
     printed = json.loads(capsys.readouterr().out)
     assert printed["attribution"]["record"].startswith("ptb-xl/") and "image" not in printed
+
+
+def test_grpc_server(ptbxl):
+    import grpc
+
+    from aetioecg.grpc_server import build_server as build_grpc
+    from aetioecg.v1.ecg_pb2 import ListOptionsRequest
+    from aetioecg.v1.ecg_pb2_grpc import EcgServiceStub
+
+    server = build_grpc(ptbxl, "127.0.0.1:0")
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    try:
+        with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
+            stub = EcgServiceStub(channel)
+            assert stub.ListOptions(ListOptionsRequest()) == ptbxl.options()
+            ecg = stub.GetEcg(EcgRequest(statements=["AFIB"], seed=3))
+            assert ecg.image.startswith(b"<svg") and ecg.seed == 3
+            with pytest.raises(grpc.RpcError) as err:
+                stub.GetEcg(EcgRequest(statements=["NOPE"]))
+            assert err.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+    finally:
+        server.stop(None)

@@ -8,6 +8,7 @@ from google.protobuf.json_format import MessageToJson, Parse, ParseError
 from pydantic import AliasChoices, BaseModel, Field
 from pydantic_settings import CliApp, CliPositionalArg, CliSettingsSource, CliSubCommand
 
+from aetioecg import grpc_server
 from aetioecg.core import EcgSource, get_ecg, list_options
 from aetioecg.mcp_server import build_server
 from aetioecg.ptbxl import PHYSIONET, PtbXl
@@ -57,12 +58,26 @@ class Mcp(BaseModel):
             server.run()
 
 
+class Grpc(BaseModel):
+    """Run the gRPC server (aetioecg.v1.EcgService, plaintext)."""
+
+    host: str = "127.0.0.1"
+    port: int = 50051
+
+    def cli_cmd(self) -> None:
+        server = grpc_server.build_server(source(), f"{self.host}:{self.port}")
+        server.start()
+        print(f"gRPC on {self.host}:{self.port}", file=sys.stderr)
+        server.wait_for_termination()
+
+
 class App(BaseModel):
     """12-lead ECGs by SCP-ECG statement, rendered as SVG."""
 
     options: CliSubCommand[Options]
     get: CliSubCommand[Get]
     mcp: CliSubCommand[Mcp]
+    grpc: CliSubCommand[Grpc]
 
     def cli_cmd(self) -> None:
         CliApp.run_subcommand(self)
