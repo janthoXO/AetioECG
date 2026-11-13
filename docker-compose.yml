@@ -1,0 +1,14 @@
+services:
+  mcp:
+    build: .
+    # The image's default command, with the port taken from PORT.
+    command: ["mcp", "--http", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      # Unset: PTB-XL is read from PhysioNet on demand. A local folder or another URL also works (see .env.example).
+      - PTBXL_SOURCE
+    # Offline use: download PTB-XL to ./data/ptb-xl (README-DEV.md), then uncomment this and set PTBXL_SOURCE=/data/ptb-xl.
+    # volumes:
+    #   - ./data/ptb-xl:/data/ptb-xl:ro
+    restart: unless-stopped
