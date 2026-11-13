@@ -1,0 +1,59 @@
+[project]
+name = "aetioecg"
+version = "0.1.0"
+description = "Synthetic 12-lead ECG provider for medical education: retrieves real PTB-XL ECGs by SCP-ECG statement and renders them as SVG, via MCP server and CLI, with a protobuf contract."
+keywords = [
+    "ecg", "electrocardiogram", "12-lead-ecg", "ptb-xl", "scp-ecg", "physionet", "medical-education",
+    "mcp", "mcp-server", "protobuf", "svg", "synthetic-data", "healthcare", "virtual-patient",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "dennis", email = "dp.jandow@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "anyio>=4.16.0",
+    "mcp>=2.3.0",
+    "protobuf>=7.36.2",
+    "pydantic>=2.14.3",
+    "pydantic-settings>=2.16.3",
+]
+
+[project.urls]
+Repository = "https://github.com/janthoXO/AetioECG"
+Issues = "https://github.com/janthoXO/AetioECG/issues"
+Documentation = "https://github.com/janthoXO/AetioECG/blob/main/README-DEV.md"
+
+[project.scripts]
+aetioecg = "aetioecg.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.3,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["src/aetioecg/v1"]
+
+[tool.ruff]
+line-length = 140
+extend-exclude = ["src/aetioecg/v1"]
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.85.1",
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
