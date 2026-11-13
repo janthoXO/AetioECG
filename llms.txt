@@ -1,0 +1,30 @@
+# AetioECG
+
+> AetioECG is an open-source Python service that returns a real 12-lead ECG as SVG for requested SCP-ECG statements (for example AFIB, IMI, NORM), selected from the PTB-XL dataset by statement, sex and age. It runs as an MCP server for LLM clients and as a command-line tool. It uses no LLM.
+
+Key facts:
+
+- Audience: medical educators, virtual-patient and e-learning platforms, researchers who need example ECGs for given findings.
+- Not for clinical use: educational only. The ECGs are real PTB-XL recordings; no patient is identified.
+- Output: SVG on grid paper, 12 leads in a 3x4 layout (2.5 s each) plus a 10 s lead II rhythm strip, 25 mm/s, 10 mm/mV. The image contains no prose, so it needs no translation.
+- Input: `EcgRequest` with one or more SCP-ECG codes (all must be shown), optional preferred `sex` and `age`, optional `seed`. Codes come from `list_ecg_options`.
+- Selection: fewest extra findings, then cleanest signal, then sex match, then closest age; seeded choice among ties. Ages above 89 count as 90.
+- Reproducible: the same request and seed return the same ECG; the seed is returned.
+- Contract: protobuf (`proto/aetioecg/v1/ecg.proto`), JSON on the wire in proto3 JSON form (camelCase, enums as names such as `SEX_FEMALE`).
+- Data: PTB-XL 1.0.3 (21,799 ECGs, PhysioNet, CC BY 4.0), read from a local copy or from PhysioNet via `PTBXL_SOURCE` (folder or URL). Every result carries the record id, citation (DOI 10.13026/kfzx-aw45) and license.
+- Interfaces: MCP tools `list_ecg_options` and `get_ecg_svg` (stdio or streamable HTTP); CLI commands `options`, `get`, `mcp`.
+- License: MIT (code); PTB-XL data is CC BY 4.0.
+- Distribution: Docker image `ghcr.io/janthoxo/aetioecg/server` (distroless, MCP over HTTP on port 8000 by default); wheel and sdist attached to GitHub releases.
+- Stack: Python 3.13, uv, protobuf, pydantic, pydantic-settings, official MCP Python SDK.
+- Sister projects: AetioMed (https://github.com/janthoXO/AetioMed), an LLM-based synthetic medical case generator that can embed these ECGs; AetioReferral (https://github.com/janthoXO/AetioReferral), synthetic referral letters.
+
+## Docs
+
+- [README](https://github.com/janthoXO/AetioECG/blob/main/README.md): what AetioECG is, features, use cases, quick start, request and response, FAQ, attribution
+- [Developer Guide](https://github.com/janthoXO/AetioECG/blob/main/README-DEV.md): architecture, contract, PTB-XL adapter, data access, rendering, adding a source, MCP server, CLI, testing, AetioMed integration
+
+## API
+
+- [Contract](https://github.com/janthoXO/AetioECG/blob/main/proto/aetioecg/v1/ecg.proto): protobuf messages and service
+- [Example request](https://github.com/janthoXO/AetioECG/blob/main/examples/request.json): an `EcgRequest` for atrial fibrillation
+- [Core](https://github.com/janthoXO/AetioECG/blob/main/src/aetioecg/core.py): the `EcgSource` port, `list_options` and `get_ecg`
