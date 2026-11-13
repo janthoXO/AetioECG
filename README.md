@@ -1,6 +1,6 @@
 # AetioECG: 12-Lead ECG Provider for Medical Education
 
-**AetioECG is an open-source Python MCP server and CLI that returns a real 12-lead ECG as SVG for the SCP-ECG statements you ask for, such as atrial fibrillation (`AFIB`) or inferior myocardial infarction (`IMI`). The ECGs are real recordings from the PTB-XL dataset, selected by statement, sex and age. It is built for medical education and virtual-patient platforms.**
+**AetioECG is an open-source Python MCP server, gRPC server and CLI that returns a real 12-lead ECG as SVG for the SCP-ECG statements you ask for, such as atrial fibrillation (`AFIB`) or inferior myocardial infarction (`IMI`). The ECGs are real recordings from the PTB-XL dataset, selected by statement, sex and age. It is built for medical education and virtual-patient platforms.**
 
 [![Build](https://github.com/janthoXO/AetioECG/actions/workflows/build.yml/badge.svg)](https://github.com/janthoXO/AetioECG/actions/workflows/build.yml)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
@@ -37,7 +37,7 @@ AetioECG is for education only and not for clinical use. It uses no LLM.
 - **Reproducible**: the same request and seed return the same ECG; the seed is returned with every result.
 - **Local or online data**: read PTB-XL straight from PhysioNet (the default, nothing to download) or from a local copy.
 - **Attribution included**: every result carries the record id, the PTB-XL citation and the license.
-- **Two interfaces**: an MCP server (stdio or streamable HTTP) for LLM clients and agents, and a command-line tool for scripts.
+- **Three interfaces**: an MCP server (stdio or streamable HTTP) for LLM clients and agents, a gRPC server for typed service-to-service calls, and a command-line tool for scripts.
 - **Language-free image**: the SVG holds only lead names and the paper speed and gain note, so it needs no translation.
 
 ## Use Cases
@@ -118,6 +118,16 @@ Tools:
 - `list_ecg_options()`: every valid statement code with description and kind. Call this first.
 - `get_ecg_svg(statements, sex?, age?, seed?)`: one ECG as an embedded `image/svg+xml` resource, plus the result without the image as structured content.
 
+### gRPC
+
+For typed service-to-service calls, `uv run aetioecg grpc` serves `aetioecg.v1.EcgService` (`ListOptions`, `GetEcg`) on `127.0.0.1:50051`, plaintext. Generate a client from [`proto/aetioecg/v1/ecg.proto`](proto/aetioecg/v1/ecg.proto); the SVG is returned as raw bytes, not base64. Reflection is off, so grpcurl needs the proto:
+
+```sh
+grpcurl -plaintext -import-path proto -proto aetioecg/v1/ecg.proto -d '{"statements":["AFIB"],"seed":7}' 127.0.0.1:50051 aetioecg.v1.EcgService/GetEcg
+```
+
+There is no TLS, so keep it on localhost or a private network.
+
 ## Request and Response
 
 Request (`aetioecg.v1.EcgRequest`, proto3 JSON, [`examples/request.json`](examples/request.json)):
@@ -156,7 +166,7 @@ Response for this request (`aetioecg.v1.Ecg`; the CLI prints it without `image`)
 
 ### What is AetioECG?
 
-AetioECG is an open-source Python tool that returns a real 12-lead ECG as SVG for requested SCP-ECG statements. It runs as an MCP server and as a CLI.
+AetioECG is an open-source Python tool that returns a real 12-lead ECG as SVG for requested SCP-ECG statements. It runs as an MCP server, as a gRPC server and as a CLI.
 
 ### Are the ECGs synthetic?
 

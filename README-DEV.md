@@ -40,8 +40,9 @@ src/aetioecg/
 ├── core.py                     EcgSource port, Recording, list_options, get_ecg
 ├── ptbxl.py                    EcgSource over PTB-XL
 ├── render.py                   Recording leads -> SVG
-├── cli.py                      CLI: options, get, mcp; source() wires the adapter
+├── cli.py                      CLI: options, get, mcp, grpc; source() wires the adapter
 ├── mcp_server.py               MCP server: list_ecg_options, get_ecg_svg
+├── grpc_server.py              gRPC server: EcgService ListOptions, GetEcg
 └── v1/                         generated protobuf code (committed, do not edit)
 tests/                          test suite
 ```
@@ -53,11 +54,11 @@ Ports and adapters with one small core.
 ```
  driving adapters              core (core.py)                  driven adapters
  ----------------        -----------------------------      ----------------------
-  cli.py     ---+        list_options(source)               EcgSource (port)
-  (options/get/mcp)  +-->  get_ecg(source, request)  ----->   options() / retrieve()
-  mcp_server.py ---+        validate -> retrieve                    |
-  (list_ecg_options,        -> render_svg (render.py)               +-- ptbxl.PtbXl
-   get_ecg_svg)                                                     +-- (planned) parametric synthesis
+  cli.py        ---+        list_options(source)               EcgSource (port)
+  (options/get/     +-->  get_ecg(source, request)  ----->   options() / retrieve()
+   mcp/grpc)        |     validate -> retrieve                    |
+  mcp_server.py  ---+     -> render_svg (render.py)               +-- ptbxl.PtbXl
+  grpc_server.py ---+                                             +-- (planned) parametric synthesis
 ```
 
 - `core.py` is the whole core interface: `list_options(source)` and `get_ecg(source, request)`. `get_ecg` checks the request against the source's options (at least one statement, every code known), draws a seed if none was given, calls `source.retrieve`, renders the recording with `render_svg` and assembles the `Ecg` message.
@@ -67,12 +68,12 @@ Ports and adapters with one small core.
 
 ## Contract
 
-[`proto/aetioecg/v1/ecg.proto`](proto/aetioecg/v1/ecg.proto) defines the messages (`EcgRequest`, `Ecg`, `EcgOptions`, `Statement`, `Attribution`, enums `Sex` and `StatementKind`) and an `EcgService` with `ListOptions` and `GetEcg`. No gRPC server ships; the service block documents the two endpoints the CLI and MCP expose. JSON on the wire is the proto3 JSON mapping: camelCase field names, enums as names (`SEX_FEMALE`), `bytes` as base64.
+[`proto/aetioecg/v1/ecg.proto`](proto/aetioecg/v1/ecg.proto) defines the messages (`EcgRequest`, `Ecg`, `EcgOptions`, `Statement`, `Attribution`, enums `Sex` and `StatementKind`) and an `EcgService` with `ListOptions` and `GetEcg`. `grpc_server.py` serves the service; the CLI and MCP expose the same two operations. JSON on the wire is the proto3 JSON mapping: camelCase field names, enums as names (`SEX_FEMALE`), `bytes` as base64 (over gRPC, `bytes` are raw).
 
 **Regenerate** the Python code after any change to the `.proto` and commit the result:
 
 ```sh
-uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src proto/aetioecg/v1/ecg.proto
+uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src --grpc_python_out=src proto/aetioecg/v1/ecg.proto
 ```
 
 CI regenerates and fails when `git diff src/aetioecg/v1` is not empty.
@@ -141,6 +142,7 @@ Point `PTBXL_SOURCE` at the folder that contains `ptbxl_database.csv`. `/data/` 
 | --- | --- |
 | `options` | prints `EcgOptions` as proto3 JSON |
 | `get FILE` | `FILE` is an `EcgRequest` JSON file, `-` reads stdin; `-o, --output PATH` SVG to write (required); prints the `Ecg` without `image` to stdout |
+| `grpc` | `--host` (default `127.0.0.1`); `--port` (default `50051`) |
 | `mcp` | `--http` serve streamable HTTP instead of stdio; `--host` (default `127.0.0.1`); `--port` (default `8000`) |
 
 Errors (`ValueError`, `OSError`, invalid request JSON) print `error: <message>` to stderr and exit with status 1.
@@ -156,9 +158,20 @@ Errors (`ValueError`, `OSError`, invalid request JSON) print `error: <message>` 
 
 The `get_ecg_svg` parameters mirror `EcgRequest` field by field. The SVG is a `BlobResourceContents` with uri `ecg://<record>.svg`, MIME `image/svg+xml` and a base64 `blob`. Errors reach the client as tool errors. The stdio transport is the default; the HTTP transport (`mcp --http`) serves `/mcp` and has no authentication.
 
+## gRPC server
+
+`grpc_server.py` serves `aetioecg.v1.EcgService` with `grpcio` (`aetioecg grpc`, default `127.0.0.1:50051`). Why gRPC: typed service-to-service calls with a client generated from the `.proto`, binary `bytes` (the SVG is not base64) and deadlines/cancellation. MCP stays for LLM agents, the CLI for scripts and humans.
+
+| Method | Request | Response |
+| --- | --- | --- |
+| `ListOptions` | `ListOptionsRequest` | `EcgOptions` |
+| `GetEcg` | `EcgRequest` | `Ecg` (including `image`) |
+
+Status codes: `ValueError` (invalid request) becomes `INVALID_ARGUMENT`, `OSError` (dataset unreachable) becomes `UNAVAILABLE`. The port is plaintext: no TLS, no health service and no reflection yet, so grpcurl needs `-import-path proto -proto aetioecg/v1/ecg.proto`. Add `grpcio-health-checking` when an orchestrator probes it.
+
 ## AetioMed integration
 
-AetioMed connects to the MCP server over streamable HTTP (`http://<host>:8000/mcp`):
+AetioMed may call either MCP (current, like AetioReferral) or gRPC with a client generated from the `.proto` (for example `@grpc/grpc-js` with ts-proto `outputServices=grpc-js`). The MCP flow, over streamable HTTP (`http://<host>:8000/mcp`):
 
 1. Call `list_ecg_options` once and cache the codes; map the case's findings to these codes.
 2. Call `get_ecg_svg` with `statements`, and `sex` and `age` of the case's patient. Pass a seed derived from the case for reproducibility.
@@ -178,8 +191,8 @@ Tests live in `tests/` and go through the core interface and the adapters, not i
 
 ## Docker, CI and releases
 
-- `Dockerfile`: build stage `debian:trixie-slim` with Debian's Python 3.13 and a pinned uv; runtime `gcr.io/distroless/python3-debian13:nonroot` (no shell, non-root). Both use `/usr/bin/python3.13`, so the copied venv stays valid. Entry point `aetioecg`, default command `mcp --http --host 0.0.0.0 --port 8000`. `PTBXL_SOURCE` is not set in the image. `proto/` is not copied: the generated code is committed.
-- `docker-compose.yml`: service `mcp`, port from `PORT` (default 8000), `PTBXL_SOURCE` passed through; a commented volume mounts `./data/ptb-xl` read-only.
+- `Dockerfile`: build stage `debian:trixie-slim` with Debian's Python 3.13 and a pinned uv; runtime `gcr.io/distroless/python3-debian13:nonroot` (no shell, non-root). Both use `/usr/bin/python3.13`, so the copied venv stays valid. Entry point `aetioecg`, default command `mcp --http --host 0.0.0.0 --port 8000`; the image exposes 8000 and 50051 (`grpc --host 0.0.0.0` serves gRPC instead). `PTBXL_SOURCE` is not set in the image. `proto/` is not copied: the generated code is committed.
+- `docker-compose.yml`: service `mcp`, port from `PORT` (default 8000), and service `grpc`, port from `GRPC_PORT` (default 50051); `PTBXL_SOURCE` passed through; a commented volume mounts `./data/ptb-xl` read-only.
 - `.github/workflows/build.yml` (pull requests): `uv sync --locked`, regenerate the protobuf code and fail on a diff, `ruff format --check`, `ruff check`, `pyright`, `pytest`, `aetioecg --help`, `uv build`.
 - `.github/workflows/package.yml` (pull requests to `main`, reusable): sets the version, builds wheel and sdist and the Docker image, smoke-tests the image (`--help`) and uploads artifacts.
 - `.github/workflows/release.yml`: on `v*` tags and on pushes to `main` that touch `src/`, `pyproject.toml`, `uv.lock`, the `Dockerfile` or the workflow. `.github/actions/determine-version` takes the version from the tag, or else bumps the patch of the latest release (starting at `0.0.1`). Pushes `ghcr.io/janthoxo/aetioecg/server:<version>` and `:latest` and creates a GitHub release with the image tar, wheel and sdist.

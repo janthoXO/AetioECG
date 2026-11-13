@@ -1,6 +1,6 @@
 # AetioECG
 
-> AetioECG is an open-source Python service that returns a real 12-lead ECG as SVG for requested SCP-ECG statements (for example AFIB, IMI, NORM), selected from the PTB-XL dataset by statement, sex and age. It runs as an MCP server for LLM clients and as a command-line tool. It uses no LLM.
+> AetioECG is an open-source Python service that returns a real 12-lead ECG as SVG for requested SCP-ECG statements (for example AFIB, IMI, NORM), selected from the PTB-XL dataset by statement, sex and age. It runs as an MCP server for LLM clients, as a gRPC server and as a command-line tool. It uses no LLM.
 
 Key facts:
 
@@ -12,7 +12,7 @@ Key facts:
 - Reproducible: the same request and seed return the same ECG; the seed is returned.
 - Contract: protobuf (`proto/aetioecg/v1/ecg.proto`), JSON on the wire in proto3 JSON form (camelCase, enums as names such as `SEX_FEMALE`).
 - Data: PTB-XL 1.0.3 (21,799 ECGs, PhysioNet, CC BY 4.0), read from a local copy or from PhysioNet via `PTBXL_SOURCE` (folder or URL). Every result carries the record id, citation (DOI 10.13026/kfzx-aw45) and license.
-- Interfaces: MCP tools `list_ecg_options` and `get_ecg_svg` (stdio or streamable HTTP); CLI commands `options`, `get`, `mcp`.
+- Interfaces: MCP tools `list_ecg_options` and `get_ecg_svg` (stdio or streamable HTTP); gRPC `aetioecg.v1.EcgService` (`ListOptions`, `GetEcg`, plaintext, port 50051); CLI commands `options`, `get`, `mcp`, `grpc`.
 - License: MIT (code); PTB-XL data is CC BY 4.0.
 - Distribution: Docker image `ghcr.io/janthoxo/aetioecg/server` (distroless, MCP over HTTP on port 8000 by default); wheel and sdist attached to GitHub releases.
 - Stack: Python 3.13, uv, protobuf, pydantic, pydantic-settings, official MCP Python SDK.

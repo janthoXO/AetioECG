@@ -12,3 +12,15 @@ services:
     # volumes:
     #   - ./data/ptb-xl:/data/ptb-xl:ro
     restart: unless-stopped
+
+  grpc:
+    build: .
+    command: ["grpc", "--host", "0.0.0.0", "--port", "${GRPC_PORT:-50051}"]
+    ports:
+      - "${GRPC_PORT:-50051}:${GRPC_PORT:-50051}"
+    environment:
+      - PTBXL_SOURCE
+    # Same offline volume as the mcp service.
+    # volumes:
+    #   - ./data/ptb-xl:/data/ptb-xl:ro
+    restart: unless-stopped

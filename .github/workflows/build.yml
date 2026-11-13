@@ -32,7 +32,7 @@ jobs:
 
       - name: Check generated protobuf code is current
         run: |
-          uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src proto/aetioecg/v1/ecg.proto
+          uv run python -m grpc_tools.protoc -Iproto --python_out=src --pyi_out=src --grpc_python_out=src proto/aetioecg/v1/ecg.proto
           git diff --exit-code src/aetioecg/v1
 
       - name: Check formatting

@@ -34,9 +34,10 @@ LABEL org.opencontainers.image.source="https://github.com/janthoXO/AetioECG" \
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 
-EXPOSE 8000
+EXPOSE 8000 50051
 
 # PTBXL_SOURCE is not set: PTB-XL is read from PhysioNet unless you set it (-e) or mount a local copy.
 # Any CLI command works: `docker run IMAGE options`.
+# `grpc --host 0.0.0.0` runs the gRPC server (port 50051) instead of MCP.
 ENTRYPOINT ["/app/.venv/bin/aetioecg"]
 CMD ["mcp", "--http", "--host", "0.0.0.0", "--port", "8000"]
